@@ -37,6 +37,191 @@ const formatDate = (val: any, fallback: string): string => {
 };
 
 // ==========================================
+// PREDEFINED HEADERS & EMPTY-SAFE SHEET BUILDER
+// ==========================================
+
+export const COLLABORATEURS_HEADERS = [
+  'ID Collaborateur',
+  'Matricule',
+  'Nom',
+  'Prénom',
+  'Email',
+  'Genre (F/H)',
+  'Statut',
+  'Département',
+  'Poste',
+  'Date Entrée (AAAA-MM-JJ)'
+];
+
+export const SESSIONS_HEADERS = [
+  'ID Session',
+  'Libellé Formation',
+  'Organisme',
+  'Type Formation',
+  'Date Début (AAAA-MM-JJ)',
+  'Date Fin (AAAA-MM-JJ)',
+  'Horaires',
+  'Durée (Jours)',
+  'Durée (Heures)',
+  'Coût Pédagogique (€)',
+  'Frais Annexes (€)',
+  'Statut Session',
+  'Participants (Matricules)',
+  'Déclaration OPCO',
+  'Nom OPCO',
+  'N° Dossier OPCO',
+  'Montant Accordé OPCO (€)',
+  'Subrogation OPCO',
+  'Statut Dossier OPCO',
+  'Salle Réservée',
+  'Nom Salle',
+  'Repas Commandés',
+  'Convocation Envoyée',
+  'Formation à Recycler',
+  'Périodicité Recyclage (Mois)',
+  'Intitulé Recyclage',
+  'Description'
+];
+
+export const SOUHAITS_HEADERS = [
+  'ID Souhait',
+  'Matricule Collaborateur',
+  'Nom & Prénom',
+  'Intitulé de la formation souhaitée',
+  'Domaine / Thématique',
+  'Niveau de Priorité',
+  'Date Souhait (AAAA-MM-JJ)',
+  'Statut Souhait',
+  'Source Recueil',
+  'Motivation'
+];
+
+export const SOUHAITS_INDIVIDUAL_HEADERS = [
+  'ID Souhait',
+  'Matricule Collaborateur',
+  'Nom & Prénom',
+  'Intitulé de la formation souhaitée',
+  'Domaine / Thématique',
+  'Niveau de Priorité',
+  'Date Souhait (AAAA-MM-JJ)',
+  'Statut Souhait',
+  'Source Recueil',
+  'Motivation et Objectifs'
+];
+
+export const LOGISTIQUE_HEADERS = [
+  'ID Session',
+  'Libellé Formation',
+  'Dates',
+  'Salle Réservée (OUI/NON)',
+  'Nom Salle',
+  'Plateaux Repas Commandés (OUI/NON)',
+  'Détails Restauration',
+  'Convocation Envoyée (OUI/NON)',
+  'Date Convocation',
+  'Notes Logistiques'
+];
+
+export const LOGISTIQUE_MASTER_HEADERS = [
+  'ID Session',
+  'Libellé Formation',
+  'Salle Réservée (OUI/NON)',
+  'Nom Salle',
+  'Plateaux Repas Commandés (OUI/NON)',
+  'Détails Restauration',
+  'Convocation Envoyée (OUI/NON)',
+  'Date Convocation',
+  'Notes Logistiques'
+];
+
+export const EVALUATIONS_HEADERS = [
+  'ID Session',
+  'Libellé Formation',
+  'Éval Chaud Effectuée (OUI/NON)',
+  'Note Globale Chaud (/5)',
+  'Note Contenu (/5)',
+  'Note Formateur (/5)',
+  'Note Organisation (/5)',
+  'Taux Recommandation (%)',
+  'Points Forts',
+  'Axes Amélioration',
+  'Éval Froid Requise (OUI/NON)',
+  'Date Prévue Éval Froid',
+  'Éval Froid Effectuée (OUI/NON)',
+  'Note Impact Opérationnel (/5)',
+  'Mise en Pratique',
+  'Retour Manager'
+];
+
+export const EVALUATIONS_INDIVIDUAL_HEADERS = [
+  'ID Session',
+  'Libellé Formation',
+  'Date Fin',
+  'Statut',
+  'Éval Chaud Effectuée (OUI/NON)',
+  'Note Globale Chaud (/5)',
+  'Note Contenu (/5)',
+  'Note Formateur (/5)',
+  'Note Organisation (/5)',
+  'Taux Recommandation (%)',
+  'Points Forts',
+  'Axes Amélioration',
+  'Éval Froid Requise (OUI/NON)',
+  'Date Prévue Éval Froid',
+  'Éval Froid Effectuée (OUI/NON)',
+  'Note Impact Opérationnel (/5)',
+  'Mise en Pratique',
+  'Retour Manager'
+];
+
+export const RECYCLAGES_HEADERS = [
+  'ID Session',
+  'Libellé Formation',
+  'Organisme',
+  'Date Fin',
+  'Formation à Recycler (OUI/NON)',
+  'Périodicité en Mois (ex: 24 pour SST)',
+  'Intitulé du Recyclage',
+  'Date Recyclage Prévue (AAAA-MM-JJ)'
+];
+
+export const OPCO_REPORT_HEADERS = [
+  'Session',
+  'Dates',
+  'Organisme',
+  'OPCO',
+  'N° Dossier',
+  'Date Dépôt',
+  'Statut Dossier',
+  'Mode',
+  'Coût Total Formation (€)',
+  'Montant Accordé OPCO (€)',
+  'Reste à Charge Entreprise (€)',
+  'Commentaires'
+];
+
+/**
+ * Creates an Excel worksheet guaranteed to contain column headers even when data is empty.
+ */
+export const createSheetWithHeaders = (
+  rows: Record<string, any>[],
+  headers: string[]
+): XLSX.WorkSheet => {
+  let ws: XLSX.WorkSheet;
+  if (!rows || rows.length === 0) {
+    ws = XLSX.utils.aoa_to_sheet([headers]);
+  } else {
+    ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+  }
+
+  ws['!cols'] = headers.map((h) => ({
+    wch: Math.max(h.length + 3, 14)
+  }));
+
+  return ws;
+};
+
+// ==========================================
 // 1. COLLABORATEURS: EXPORT & RE-IMPORT
 // ==========================================
 
@@ -54,7 +239,7 @@ export const exportCurrentCollaborateursToExcel = (collaborateurs: Collaborateur
     'Date Entrée (AAAA-MM-JJ)': c.dateEntree
   }));
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const ws = createSheetWithHeaders(rows, COLLABORATEURS_HEADERS);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Collaborateurs');
   XLSX.writeFile(wb, `Collaborateurs_Export_Modifiable_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -210,7 +395,7 @@ export const exportCurrentSessionsToExcel = (
     };
   });
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const ws = createSheetWithHeaders(rows, SESSIONS_HEADERS.filter((h) => h !== 'Description'));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Sessions');
   XLSX.writeFile(wb, `Sessions_Export_Modifiable_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -424,7 +609,7 @@ export const exportCurrentSouhaitsToExcel = (
     };
   });
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const ws = createSheetWithHeaders(rows, SOUHAITS_INDIVIDUAL_HEADERS);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Souhaits_Formation');
   XLSX.writeFile(wb, `Souhaits_Export_Modifiable_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -550,7 +735,7 @@ export const exportCurrentLogistiqueToExcel = (
     'Notes Logistiques': s.logistique.notesLogistiques || ''
   }));
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const ws = createSheetWithHeaders(rows, LOGISTIQUE_HEADERS);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Logistique_Sessions');
   XLSX.writeFile(wb, `Logistique_Export_Modifiable_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -627,7 +812,7 @@ export const exportCurrentEvaluationsToExcel = (sessions: FormationSession[]) =>
     'Retour Manager': s.evaluationFroid.retourManager || ''
   }));
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const ws = createSheetWithHeaders(rows, EVALUATIONS_INDIVIDUAL_HEADERS);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Evaluations_Formation');
   XLSX.writeFile(wb, `Evaluations_Export_Modifiable_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -710,7 +895,7 @@ export const exportCurrentRecyclagesToExcel = (
     'Date Recyclage Prévue (AAAA-MM-JJ)': s.recyclage.dateRecyclagePrevue || ''
   }));
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const ws = createSheetWithHeaders(rows, RECYCLAGES_HEADERS);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Recyclages');
   XLSX.writeFile(wb, `Recyclages_Export_Modifiable_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -802,10 +987,10 @@ export const exportMasterDatabaseToExcel = (
     'Intitulé Recyclage': s.recyclage.intituleRecyclage || '',
     'Description': s.description || ''
   }));
-  const wsSessions = XLSX.utils.json_to_sheet(sessionRows);
+  const wsSessions = createSheetWithHeaders(sessionRows, SESSIONS_HEADERS);
   XLSX.utils.book_append_sheet(wb, wsSessions, 'Sessions');
 
-  // Sheet 2: Collaborateurs
+  // Sheet 2: Collaborateurs (with Statut column included)
   const collabRows = collaborateurs.map((c) => ({
     'ID Collaborateur': c.id,
     'Matricule': c.matricule,
@@ -813,11 +998,12 @@ export const exportMasterDatabaseToExcel = (
     'Prénom': c.prenom,
     'Email': c.email,
     'Genre (F/H)': c.genre,
+    'Statut': c.statut || 'EMP',
     'Département': c.departement,
     'Poste': c.poste,
     'Date Entrée (AAAA-MM-JJ)': c.dateEntree
   }));
-  const wsCollabs = XLSX.utils.json_to_sheet(collabRows);
+  const wsCollabs = createSheetWithHeaders(collabRows, COLLABORATEURS_HEADERS);
   XLSX.utils.book_append_sheet(wb, wsCollabs, 'Collaborateurs');
 
   // Sheet 3: Souhaits
@@ -836,7 +1022,7 @@ export const exportMasterDatabaseToExcel = (
       'Motivation': sw.motivation || ''
     };
   });
-  const wsSouhaits = XLSX.utils.json_to_sheet(souhaitRows);
+  const wsSouhaits = createSheetWithHeaders(souhaitRows, SOUHAITS_HEADERS);
   XLSX.utils.book_append_sheet(wb, wsSouhaits, 'Souhaits');
 
   // Sheet 4: Logistique
@@ -851,7 +1037,7 @@ export const exportMasterDatabaseToExcel = (
     'Date Convocation': s.logistique.dateConvocation || '',
     'Notes Logistiques': s.logistique.notesLogistiques || ''
   }));
-  const wsLogistique = XLSX.utils.json_to_sheet(logistiqueRows);
+  const wsLogistique = createSheetWithHeaders(logistiqueRows, LOGISTIQUE_MASTER_HEADERS);
   XLSX.utils.book_append_sheet(wb, wsLogistique, 'Logistique');
 
   // Sheet 5: Evaluations
@@ -873,7 +1059,7 @@ export const exportMasterDatabaseToExcel = (
     'Mise en Pratique': s.evaluationFroid.competencesMisesEnPratique || '',
     'Retour Manager': s.evaluationFroid.retourManager || ''
   }));
-  const wsEval = XLSX.utils.json_to_sheet(evalRows);
+  const wsEval = createSheetWithHeaders(evalRows, EVALUATIONS_HEADERS);
   XLSX.utils.book_append_sheet(wb, wsEval, 'Evaluations');
 
   // Sheet 6: Recyclages
@@ -887,7 +1073,7 @@ export const exportMasterDatabaseToExcel = (
     'Intitulé du Recyclage': s.recyclage.intituleRecyclage || s.libelle,
     'Date Recyclage Prévue (AAAA-MM-JJ)': s.recyclage.dateRecyclagePrevue || ''
   }));
-  const wsRecyclage = XLSX.utils.json_to_sheet(recyclageRows);
+  const wsRecyclage = createSheetWithHeaders(recyclageRows, RECYCLAGES_HEADERS);
   XLSX.utils.book_append_sheet(wb, wsRecyclage, 'Recyclages');
 
   XLSX.writeFile(wb, `Formation_TABM_Base_Complete_MultiFeuilles_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -1067,7 +1253,7 @@ export const exportOPCOReportToExcel = (sessions: FormationSession[]) => {
     'Commentaires': s.opco.commentaires || ''
   }));
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const ws = createSheetWithHeaders(rows, OPCO_REPORT_HEADERS);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Suivi_Financier_OPCO');
   XLSX.writeFile(wb, `Rapport_OPCO_${new Date().toISOString().slice(0, 10)}.xlsx`);

@@ -13,7 +13,8 @@ import {
   ClipboardCheck, 
   Star, 
   RefreshCw,
-  HelpCircle
+  HelpCircle,
+  Trash2
 } from 'lucide-react';
 import { FormationSession, Collaborateur, SouhaitFormation } from '../types';
 import {
@@ -665,7 +666,24 @@ export const ExcelSyncModal: React.FC<ExcelSyncModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+          {onResetToDefault ? (
+            <button
+              onClick={() => {
+                if (confirm('Voulez-vous effacer toutes les données et remettre l’application à zéro (base vierge) ?')) {
+                  onResetToDefault();
+                  setFeedback({
+                    type: 'success',
+                    message: 'L\'application a été remise à zéro avec succès (base vierge).'
+                  });
+                }
+              }}
+              className="text-xs text-rose-600 hover:text-rose-700 hover:underline inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Remise à zéro de l'application (vider la base)</span>
+            </button>
+          ) : <div />}
           <button
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"

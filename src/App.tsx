@@ -247,13 +247,13 @@ export function App() {
     setIsCreateModalOpen(true);
   };
 
-  // Reset demo data helper
+  // Reset data helper
   const handleResetData = () => {
-    if (confirm('Voulez-vous réinitialiser toutes les données aux valeurs de démonstration ?')) {
+    if (confirm('Voulez-vous effacer toutes les données locales de l’application et repartir d’une base vierge ?')) {
       resetToDefaultData();
-      setSessions(loadSessions());
-      setCollaborateurs(loadCollaborateurs());
-      setSouhaits(loadSouhaits());
+      setSessions([]);
+      setCollaborateurs([]);
+      setSouhaits([]);
     }
   };
 

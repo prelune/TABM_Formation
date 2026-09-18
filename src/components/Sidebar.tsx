@@ -14,7 +14,8 @@ import {
   ArrowUpRight,
   Landmark,
   Download,
-  Share2
+  Share2,
+  Trash2
 } from 'lucide-react';
 import { ActiveTab, FormationSession, Collaborateur } from '../types';
 import { calculateColdEvaluationAlerts, calculateRecyclingAlerts } from '../utils/analytics';
@@ -209,6 +210,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span>Guide Conformité RGPD</span>
               </div>
               <ArrowUpRight className="h-3 w-3 text-stone-400" />
+            </button>
+          )}
+
+          {onResetData && (
+            <button
+              onClick={() => {
+                onResetData();
+                if (onCloseMobile) onCloseMobile();
+              }}
+              title="Effacer toutes les données locales pour repartir d'une base vierge"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-stone-500 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2.5">
+                <Trash2 className="h-4 w-4 text-stone-400 group-hover:text-rose-600 shrink-0" />
+                <span>Vider les données</span>
+              </div>
             </button>
           )}
         </nav>

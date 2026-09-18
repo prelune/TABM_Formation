@@ -60,8 +60,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const wishStats = calculateWishMatching(souhaits, sessions, collaborateurs);
   const genderStats = calculateGenderEquality(collaborateurs, sessions);
   const totalFormesGender = genderStats.femmesFormees + genderStats.hommesFormes;
-  const pctFemmes = totalFormesGender > 0 ? Math.round((genderStats.femmesFormees / totalFormesGender) * 100) : 50;
-  const pctHommes = totalFormesGender > 0 ? 100 - pctFemmes : 50;
+  const pctFemmes = totalFormesGender > 0 ? Math.round((genderStats.femmesFormees / totalFormesGender) * 100) : 0;
+  const pctHommes = totalFormesGender > 0 ? 100 - pctFemmes : 0;
   const opcoStats = calculateOPCOStats(sessions);
   const coldAlerts = calculateColdEvaluationAlerts(sessions);
   const recyclingAlerts = calculateRecyclingAlerts(sessions, collaborateurs).filter(
@@ -626,6 +626,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </td>
                 </tr>
               ))}
+              {dimensionData.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="py-6 text-center text-xs text-stone-400">
+                    Aucune donnée disponible. Ajoutez des collaborateurs et des formations.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -862,6 +869,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {!selectedCollab && (
+          <div className="p-8 text-center rounded-lg border border-stone-200/60 bg-stone-50/50">
+            <Users className="h-8 w-8 text-stone-300 mx-auto mb-2" />
+            <p className="text-xs font-semibold text-stone-700">Aucun collaborateur enregistré</p>
+            <p className="text-[11px] text-stone-500 mt-0.5">
+              Ajoutez des salariés manuellement ou importez un fichier Excel pour activer les passeports formation individuels.
+            </p>
           </div>
         )}
       </div>
