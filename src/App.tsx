@@ -24,6 +24,7 @@ import { CreateSessionModal } from './components/CreateSessionModal';
 import { SessionDetailModal } from './components/SessionDetailModal';
 import { DataRgpdGuideModal } from './components/DataRgpdGuideModal';
 import { ExcelSyncModal } from './components/ExcelSyncModal';
+import { WelcomeBackupImportScreen } from './components/WelcomeBackupImportScreen';
 import { RecyclingAlertItem } from './utils/analytics';
 
 export function App() {
@@ -40,6 +41,9 @@ export function App() {
   });
   const [hasExportedThisSession, setHasExportedThisSession] = useState<boolean>(() => {
     return sessionStorage.getItem('tabm_exported_session') === 'true';
+  });
+  const [isWelcomeDismissed, setIsWelcomeDismissed] = useState<boolean>(() => {
+    return sessionStorage.getItem('tabm_welcome_dismissed') === 'true';
   });
   const [lastImportTime, setLastImportTime] = useState<string | null>(() => {
     return sessionStorage.getItem('tabm_last_import_time') || null;
@@ -85,6 +89,30 @@ export function App() {
     setLastImportTime(timeStr);
     sessionStorage.setItem('tabm_imported_session', 'true');
     sessionStorage.setItem('tabm_last_import_time', timeStr);
+  };
+
+  const handleWelcomeImportComplete = (data: {
+    sessions: FormationSession[];
+    collaborateurs: Collaborateur[];
+    souhaits: SouhaitFormation[];
+    summary: string[];
+  }) => {
+    setSessions(data.sessions);
+    setCollaborateurs(data.collaborateurs);
+    setSouhaits(data.souhaits);
+    handleImportSuccess();
+    setIsWelcomeDismissed(true);
+    sessionStorage.setItem('tabm_welcome_dismissed', 'true');
+  };
+
+  const handleWelcomeContinueBlank = () => {
+    setIsWelcomeDismissed(true);
+    sessionStorage.setItem('tabm_welcome_dismissed', 'true');
+  };
+
+  const handleOpenWelcomeImport = () => {
+    setIsWelcomeDismissed(false);
+    sessionStorage.removeItem('tabm_welcome_dismissed');
   };
 
   // Handler: Create or Update Session
@@ -254,11 +282,24 @@ export function App() {
       setSessions([]);
       setCollaborateurs([]);
       setSouhaits([]);
+      setHasImportedThisSession(false);
+      setIsWelcomeDismissed(false);
+      sessionStorage.removeItem('tabm_imported_session');
+      sessionStorage.removeItem('tabm_welcome_dismissed');
+      sessionStorage.removeItem('tabm_last_import_time');
     }
   };
 
   return (
     <div className="flex h-screen w-full bg-slate-50 font-sans text-slate-900 overflow-hidden">
+      {/* Welcome Screen dedicated exclusively to importing a backup, disappears after import */}
+      {!hasImportedThisSession && !isWelcomeDismissed && (
+        <WelcomeBackupImportScreen
+          onImportComplete={handleWelcomeImportComplete}
+          onContinueBlank={handleWelcomeContinueBlank}
+        />
+      )}
+
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -273,6 +314,7 @@ export function App() {
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onOpenExcelSync={() => setIsExcelSyncModalOpen(true)}
+        onOpenWelcomeImport={handleOpenWelcomeImport}
         onOpenGuideModal={() => setIsGuideModalOpen(true)}
         onDirectSave={handleDirectSave}
         onOpenSaveReminder={() => setShowSaveReminderModal(true)}
@@ -301,7 +343,7 @@ export function App() {
           hasExportedThisSession={hasExportedThisSession}
           lastImportTime={lastImportTime}
           lastExportTime={lastExportTime}
-          onOpenImportModal={() => setIsExcelSyncModalOpen(true)}
+          onOpenImportModal={handleOpenWelcomeImport}
           onDirectExport={handleDirectSave}
           showSaveReminderModal={showSaveReminderModal}
           onCloseSaveReminderModal={() => setShowSaveReminderModal(false)}

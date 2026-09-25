@@ -15,7 +15,8 @@ import {
   Landmark,
   Download,
   Share2,
-  Trash2
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { ActiveTab, FormationSession, Collaborateur } from '../types';
 import { calculateColdEvaluationAlerts, calculateRecyclingAlerts } from '../utils/analytics';
@@ -30,6 +31,7 @@ interface SidebarProps {
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
   onOpenExcelSync?: () => void;
+  onOpenWelcomeImport?: () => void;
   onOpenGuideModal?: () => void;
   onDirectSave?: () => void;
   onOpenSaveReminder?: () => void;
@@ -45,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile,
   onOpenExcelSync,
+  onOpenWelcomeImport,
   onOpenGuideModal,
   onDirectSave,
   onOpenSaveReminder
@@ -180,6 +183,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Gouvernance & Flux
             </p>
           </div>
+
+          {onOpenWelcomeImport && (
+            <button
+              onClick={() => {
+                onOpenWelcomeImport();
+                if (onCloseMobile) onCloseMobile();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition-colors cursor-pointer"
+              title="Ouvrir l'écran d'accueil pour importer une sauvegarde Excel"
+            >
+              <div className="flex items-center gap-2.5">
+                <Upload className="h-4 w-4 text-amber-600 shrink-0" />
+                <span>Importer sauvegarde</span>
+              </div>
+              <ArrowUpRight className="h-3 w-3 text-stone-400" />
+            </button>
+          )}
 
           {onOpenExcelSync && (
             <button
