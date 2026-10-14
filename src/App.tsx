@@ -448,6 +448,7 @@ export function App() {
         onSave={handleSaveSession}
         collaborateurs={collaborateurs}
         prefilledData={prefilledSession}
+        onAddCollaborateur={handleAddCollaborateur}
       />
 
       {/* Session Detail & Management Modal */}
@@ -459,6 +460,11 @@ export function App() {
           collaborateurs={collaborateurs}
           onUpdate={handleUpdateSession}
           onDeleteSession={handleDeleteSession}
+          onEditFullSession={(sessionToEdit) => {
+            setSelectedSession(null);
+            setPrefilledSession(sessionToEdit);
+            setIsCreateModalOpen(true);
+          }}
         />
       )}
 

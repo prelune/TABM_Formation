@@ -48,6 +48,7 @@ export const COLLABORATEURS_HEADERS = [
   'Email',
   'Genre (F/H)',
   'Statut',
+  'Société',
   'Département',
   'Poste',
   'Date Entrée (AAAA-MM-JJ)'
@@ -80,6 +81,7 @@ export const SESSIONS_HEADERS = [
   'Formation à Recycler',
   'Périodicité Recyclage (Mois)',
   'Intitulé Recyclage',
+  'Sécurité des Personnes (OUI/NON)',
   'Description'
 ];
 
@@ -234,6 +236,7 @@ export const exportCurrentCollaborateursToExcel = (collaborateurs: Collaborateur
     'Email': c.email,
     'Genre (F/H)': c.genre,
     'Statut': c.statut || 'EMP',
+    'Société': c.societe || 'TABM',
     'Département': c.departement,
     'Poste': c.poste,
     'Date Entrée (AAAA-MM-JJ)': c.dateEntree
@@ -297,6 +300,7 @@ export const importCollaborateursFromExcel = async (
       statut = 'EMP';
     }
     
+    const societe = String(row['Société'] || row['Societe'] || row['societe'] || row['Entreprise'] || 'TABM').trim() || 'TABM';
     const departement = String(row['Département'] || row['Departement'] || row['departement'] || 'Général').trim();
     const poste = String(row['Poste'] || row['poste'] || 'Collaborateur').trim();
     const dateEntree = formatDate(row['Date Entrée (AAAA-MM-JJ)'] || row['DateEntree'] || row['Date Entrée'], '2023-01-01');
@@ -316,6 +320,7 @@ export const importCollaborateursFromExcel = async (
         email,
         genre,
         statut,
+        societe,
         departement,
         poste,
         dateEntree
@@ -332,6 +337,7 @@ export const importCollaborateursFromExcel = async (
         email,
         genre,
         statut,
+        societe,
         departement,
         poste,
         dateEntree
@@ -391,7 +397,8 @@ export const exportCurrentSessionsToExcel = (
       'Convocation Envoyée': s.logistique.convocationEnvoyee ? 'OUI' : 'NON',
       'Formation à Recycler': s.recyclage.aRecycler ? 'OUI' : 'NON',
       'Périodicité Recyclage (Mois)': s.recyclage.periodiciteMois || 24,
-      'Intitulé Recyclage': s.recyclage.intituleRecyclage || ''
+      'Intitulé Recyclage': s.recyclage.intituleRecyclage || '',
+      'Sécurité des Personnes (OUI/NON)': s.securitePersonnes ? 'OUI' : 'NON'
     };
   });
 
@@ -479,6 +486,15 @@ export const importSessionsFromExcel = async (
     const periodiciteMois = Number(row['Périodicité Recyclage (Mois)'] || 24) || 24;
     const intituleRecyclage = String(row['Intitulé Recyclage'] || '').trim();
 
+    // Parse Sécurité des personnes
+    const securitePersonnes = parseBoolean(
+      row['Sécurité des Personnes (OUI/NON)'] || 
+      row['Sécurité des Personnes'] || 
+      row['Sécurité des personnes'] || 
+      row['SecuritePersonnes'] || 
+      row['Sécurité']
+    );
+
     // Check if session exists
     const existingIndex = finalSessions.findIndex((s) => rawId && s.id === rawId);
 
@@ -520,7 +536,8 @@ export const importSessionsFromExcel = async (
           aRecycler,
           periodiciteMois,
           intituleRecyclage
-        }
+        },
+        securitePersonnes: securitePersonnes || curr.securitePersonnes || false
       };
       updatedCount++;
     } else {
@@ -570,6 +587,7 @@ export const importSessionsFromExcel = async (
           periodiciteMois,
           intituleRecyclage
         },
+        securitePersonnes,
         createdAt: new Date().toISOString()
       });
       createdCount++;
@@ -985,12 +1003,13 @@ export const exportMasterDatabaseToExcel = (
     'Formation à Recycler': s.recyclage.aRecycler ? 'OUI' : 'NON',
     'Périodicité Recyclage (Mois)': s.recyclage.periodiciteMois || 24,
     'Intitulé Recyclage': s.recyclage.intituleRecyclage || '',
+    'Sécurité des Personnes (OUI/NON)': s.securitePersonnes ? 'OUI' : 'NON',
     'Description': s.description || ''
   }));
   const wsSessions = createSheetWithHeaders(sessionRows, SESSIONS_HEADERS);
   XLSX.utils.book_append_sheet(wb, wsSessions, 'Sessions');
 
-  // Sheet 2: Collaborateurs (with Statut column included)
+  // Sheet 2: Collaborateurs (with Statut and Société column included)
   const collabRows = collaborateurs.map((c) => ({
     'ID Collaborateur': c.id,
     'Matricule': c.matricule,
@@ -999,6 +1018,7 @@ export const exportMasterDatabaseToExcel = (
     'Email': c.email,
     'Genre (F/H)': c.genre,
     'Statut': c.statut || 'EMP',
+    'Société': c.societe || 'TABM',
     'Département': c.departement,
     'Poste': c.poste,
     'Date Entrée (AAAA-MM-JJ)': c.dateEntree

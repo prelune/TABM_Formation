@@ -49,6 +49,7 @@ export interface Collaborateur {
   departement: string;
   poste: string;
   dateEntree: string; // ISO format: YYYY-MM-DD
+  societe?: string; // Entité / Société d'appartenance (ex: TABM, Filiale, etc.)
 }
 
 export interface ParticipantPresence {
@@ -133,6 +134,7 @@ export interface FormationSession {
   evaluationFroid: EvaluationFroid;
   opco: SuiviOPCO;
   recyclage: RecyclageConfig;
+  securitePersonnes?: boolean; // Formation en lien avec la sécurité des personnes
   souhaitOrigineId?: string;
   description?: string;
   createdAt: string;

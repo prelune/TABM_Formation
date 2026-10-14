@@ -21,7 +21,8 @@ import {
   Search,
   Plus,
   Trash2,
-  UserPlus
+  UserPlus,
+  ShieldCheck
 } from 'lucide-react';
 import { 
   FormationSession, 
@@ -249,6 +250,12 @@ export const SessionDetailModal: React.FC<SessionDetailModalProps> = ({
               {session.recyclage.aRecycler && (
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                   Recyclable ({session.recyclage.periodiciteMois}m)
+                </span>
+              )}
+              {session.securitePersonnes && (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                  <ShieldCheck className="h-3 w-3" />
+                  Sécurité des personnes
                 </span>
               )}
             </div>

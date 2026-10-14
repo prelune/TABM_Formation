@@ -13,12 +13,19 @@ import {
   ClipboardCheck,
   Search,
   Shield,
+  ShieldCheck,
   Briefcase,
   BarChart2,
   BarChart3,
   Layers,
   TrendingUp,
-  Percent
+  Percent,
+  Calendar,
+  Building2,
+  Filter,
+  Check,
+  Receipt,
+  ChevronDown
 } from 'lucide-react';
 import { 
   Collaborateur, 
@@ -49,6 +56,11 @@ interface DashboardViewProps {
   onOpenCreateSession: () => void;
 }
 
+const MONTH_NAMES = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+];
+
 export const DashboardView: React.FC<DashboardViewProps> = ({
   sessions,
   collaborateurs,
@@ -57,25 +69,252 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSelectSession,
   onOpenCreateSession
 }) => {
-  const wishStats = calculateWishMatching(souhaits, sessions, collaborateurs);
-  const genderStats = calculateGenderEquality(collaborateurs, sessions);
+  const now = new Date();
+
+  // ==========================================
+  // 1. PERIOD FILTERING STATE & LOGIC
+  // ==========================================
+  // Modes: 'MONTH' (mois sélectionné), 'ROLLING_12' (12 mois glissants), 'YTD' (de janvier au mois sélectionné), 'ALL' (tout)
+  const [periodMode, setPeriodMode] = useState<'MONTH' | 'ROLLING_12' | 'YTD' | 'ALL'>('YTD');
+  
+  // Default selected month & year based on sessions or current date
+  const [selectedMonth, setSelectedMonth] = useState<number>(() => {
+    if (sessions.length > 0) {
+      const latestDate = sessions.reduce((max, s) => (s.dateDebut > max ? s.dateDebut : max), sessions[0].dateDebut);
+      return new Date(latestDate).getMonth();
+    }
+    return now.getMonth();
+  });
+
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    if (sessions.length > 0) {
+      const latestDate = sessions.reduce((max, s) => (s.dateDebut > max ? s.dateDebut : max), sessions[0].dateDebut);
+      return new Date(latestDate).getFullYear();
+    }
+    return now.getFullYear();
+  });
+
+  // Available years detected from data + current year
+  const availableYears = useMemo(() => {
+    const set = new Set<number>([now.getFullYear(), 2025, 2026, 2027]);
+    sessions.forEach((s) => {
+      const y = parseInt(s.dateDebut?.slice(0, 4) || '', 10);
+      if (!isNaN(y)) set.add(y);
+    });
+    return Array.from(set).sort((a, b) => b - a);
+  }, [sessions]);
+
+  // Compute active date boundaries [start, end]
+  const periodRange = useMemo(() => {
+    if (periodMode === 'ALL') return null;
+
+    const monthPad = String(selectedMonth + 1).padStart(2, '0');
+    const lastDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    const endIso = `${selectedYear}-${monthPad}-${String(lastDay).padStart(2, '0')}`;
+
+    if (periodMode === 'MONTH') {
+      const startIso = `${selectedYear}-${monthPad}-01`;
+      return {
+        start: startIso,
+        end: endIso,
+        label: `${MONTH_NAMES[selectedMonth]} ${selectedYear}`,
+        details: `Du 01/${monthPad}/${selectedYear} au ${lastDay}/${monthPad}/${selectedYear}`
+      };
+    }
+
+    if (periodMode === 'YTD') {
+      const startIso = `${selectedYear}-01-01`;
+      return {
+        start: startIso,
+        end: endIso,
+        label: `YTD (${MONTH_NAMES[0]} à ${MONTH_NAMES[selectedMonth]} ${selectedYear})`,
+        details: `Du 01/01/${selectedYear} au ${lastDay}/${monthPad}/${selectedYear}`
+      };
+    }
+
+    if (periodMode === 'ROLLING_12') {
+      // 12 months rolling ending at selected month of selected year
+      const startDateObj = new Date(selectedYear, selectedMonth - 11, 1);
+      const startY = startDateObj.getFullYear();
+      const startM = String(startDateObj.getMonth() + 1).padStart(2, '0');
+      const startIso = `${startY}-${startM}-01`;
+      return {
+        start: startIso,
+        end: endIso,
+        label: `12 mois glissants (${MONTH_NAMES[startDateObj.getMonth()]} ${startY} - ${MONTH_NAMES[selectedMonth]} ${selectedYear})`,
+        details: `Du 01/${startM}/${startY} au ${lastDay}/${monthPad}/${selectedYear}`
+      };
+    }
+
+    return null;
+  }, [periodMode, selectedMonth, selectedYear]);
+
+  // ==========================================
+  // 2. SOCIÉTÉ (COMPANY) FILTERING
+  // ==========================================
+  const allSocietes = useMemo(() => {
+    const set = new Set<string>();
+    collaborateurs.forEach((c) => {
+      const s = (c.societe || 'TABM').trim();
+      if (s) set.add(s);
+    });
+    if (!set.has('TABM')) set.add('TABM');
+    return Array.from(set).sort();
+  }, [collaborateurs]);
+
+  // Selected companies: empty array means ALL companies are observed
+  const [selectedSocietes, setSelectedSocietes] = useState<string[]>([]);
+
+  const handleToggleSociete = (soc: string) => {
+    if (selectedSocietes.includes(soc)) {
+      setSelectedSocietes(selectedSocietes.filter((s) => s !== soc));
+    } else {
+      setSelectedSocietes([...selectedSocietes, soc]);
+    }
+  };
+
+  const handleSelectAllSocietes = () => {
+    setSelectedSocietes([]);
+  };
+
+  // ==========================================
+  // 3. SCOPED DATA (Period + Société filtering)
+  // ==========================================
+  const scopedCollaborateurs = useMemo(() => {
+    if (selectedSocietes.length === 0) return collaborateurs;
+    return collaborateurs.filter((c) => selectedSocietes.includes(c.societe || 'TABM'));
+  }, [collaborateurs, selectedSocietes]);
+
+  const scopedSessions = useMemo(() => {
+    return sessions.filter((s) => {
+      // Period filter
+      if (periodRange) {
+        const sStart = s.dateDebut || s.dateFin;
+        if (!sStart) return false;
+        if (s.dateDebut > periodRange.end) return false;
+        if (s.dateFin && s.dateFin < periodRange.start) return false;
+      }
+
+      // Société filter
+      if (selectedSocietes.length > 0) {
+        const hasParticipantFromSociete = s.participants.some((p) => {
+          const collab = collaborateurs.find((c) => c.id === p.collaborateurId);
+          const soc = collab?.societe || 'TABM';
+          return selectedSocietes.includes(soc);
+        });
+        if (!hasParticipantFromSociete) return false;
+      }
+
+      return true;
+    });
+  }, [sessions, periodRange, selectedSocietes, collaborateurs]);
+
+  // ==========================================
+  // 4. SÉCURITÉ DES PERSONNES COUNT
+  // ==========================================
+  const securitySessionsCount = useMemo(() => {
+    return scopedSessions.filter((s) => s.securitePersonnes === true).length;
+  }, [scopedSessions]);
+
+  // ==========================================
+  // 5. REFACTURATION INTER-SOCIÉTÉS BREAKDOWN
+  // ==========================================
+  const refacturationData = useMemo(() => {
+    const map = new Map<string, {
+      societe: string;
+      salariesFormes: Set<string>;
+      totalHeures: number;
+      coutPedagogiqueRefacturable: number;
+      priseEnChargeOpcoEstimee: number;
+      sessionsCount: number;
+    }>();
+
+    allSocietes.forEach((soc) => {
+      map.set(soc, {
+        societe: soc,
+        salariesFormes: new Set<string>(),
+        totalHeures: 0,
+        coutPedagogiqueRefacturable: 0,
+        priseEnChargeOpcoEstimee: 0,
+        sessionsCount: 0
+      });
+    });
+
+    scopedSessions.forEach((s) => {
+      const totalParticipants = Math.max(s.participants.length, 1);
+      const sessionCost = s.coutPedagogiqueTotal + (s.fraisAnnexesTotal || 0);
+      const opcoContrib = s.opco.declare ? (s.opco.montantPrisEnCharge + s.opco.fraisAnnexesPrisEnCharge) : 0;
+
+      const participantsBySoc = new Map<string, number>();
+      s.participants.forEach((p) => {
+        const collab = collaborateurs.find((c) => c.id === p.collaborateurId);
+        const soc = collab?.societe || 'TABM';
+        participantsBySoc.set(soc, (participantsBySoc.get(soc) || 0) + 1);
+
+        const item = map.get(soc);
+        if (item) {
+          item.salariesFormes.add(p.collaborateurId);
+          item.totalHeures += s.dureeHeures;
+        }
+      });
+
+      participantsBySoc.forEach((count, soc) => {
+        let item = map.get(soc);
+        if (!item) {
+          item = {
+            societe: soc,
+            salariesFormes: new Set<string>(),
+            totalHeures: 0,
+            coutPedagogiqueRefacturable: 0,
+            priseEnChargeOpcoEstimee: 0,
+            sessionsCount: 0
+          };
+          map.set(soc, item);
+        }
+        item.sessionsCount++;
+        const ratio = count / totalParticipants;
+        item.coutPedagogiqueRefacturable += sessionCost * ratio;
+        item.priseEnChargeOpcoEstimee += opcoContrib * ratio;
+      });
+    });
+
+    return Array.from(map.values())
+      .map((item) => ({
+        societe: item.societe,
+        salariesCount: item.salariesFormes.size,
+        totalHeures: item.totalHeures,
+        coutTotal: Math.round(item.coutPedagogiqueRefacturable),
+        opcoTotal: Math.round(item.priseEnChargeOpcoEstimee),
+        resteACharge: Math.max(0, Math.round(item.coutPedagogiqueRefacturable - item.priseEnChargeOpcoEstimee)),
+        sessionsCount: item.sessionsCount
+      }))
+      .filter((item) => (selectedSocietes.length === 0 ? true : selectedSocietes.includes(item.societe)));
+  }, [scopedSessions, allSocietes, collaborateurs, selectedSocietes]);
+
+  const [showRefacturationDetails, setShowRefacturationDetails] = useState(false);
+
+  // ==========================================
+  // 6. SCOPED METRICS
+  // ==========================================
+  const wishStats = calculateWishMatching(souhaits, scopedSessions, scopedCollaborateurs);
+  const genderStats = calculateGenderEquality(scopedCollaborateurs, scopedSessions);
   const totalFormesGender = genderStats.femmesFormees + genderStats.hommesFormes;
   const pctFemmes = totalFormesGender > 0 ? Math.round((genderStats.femmesFormees / totalFormesGender) * 100) : 0;
   const pctHommes = totalFormesGender > 0 ? 100 - pctFemmes : 0;
-  const opcoStats = calculateOPCOStats(sessions);
-  const coldAlerts = calculateColdEvaluationAlerts(sessions);
-  const recyclingAlerts = calculateRecyclingAlerts(sessions, collaborateurs).filter(
+  const opcoStats = calculateOPCOStats(scopedSessions);
+  const coldAlerts = calculateColdEvaluationAlerts(scopedSessions);
+  const recyclingAlerts = calculateRecyclingAlerts(scopedSessions, scopedCollaborateurs).filter(
     (a) => a.etat === 'EXPIRE' || a.etat === 'URGENT'
   );
-  const logisticsAlerts = calculateLogisticsAlerts(sessions);
+  const logisticsAlerts = calculateLogisticsAlerts(scopedSessions);
 
-  // Dimension Analytics: analyze number and cost of training by 'sexe', 'departement', or 'statut'
+  // Dimension Analytics
   const [selectedDimension, setSelectedDimension] = useState<'statut' | 'sexe' | 'departement'>('statut');
   const [dimensionMetric, setDimensionMetric] = useState<'TOUT' | 'COUT' | 'NOMBRE'>('TOUT');
 
   const dimensionData = useMemo(() => {
-    return calculateDimensionTrainingAnalytics(selectedDimension, collaborateurs, sessions);
-  }, [selectedDimension, collaborateurs, sessions]);
+    return calculateDimensionTrainingAnalytics(selectedDimension, scopedCollaborateurs, scopedSessions);
+  }, [selectedDimension, scopedCollaborateurs, scopedSessions]);
 
   const dimensionMaxCost = useMemo(() => {
     return Math.max(...dimensionData.map((d) => d.coutTotal), 1);
@@ -87,11 +326,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Sorted alphabetically by last name (nom de famille)
   const sortedCollaborateurs = useMemo(() => {
-    return [...collaborateurs].sort((a, b) => 
+    return [...scopedCollaborateurs].sort((a, b) => 
       a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }) || 
       a.prenom.localeCompare(b.prenom, 'fr')
     );
-  }, [collaborateurs]);
+  }, [scopedCollaborateurs]);
 
   const [passportSearch, setPassportSearch] = useState('');
   const [selectedCollabId, setSelectedCollabId] = useState<string>(
@@ -106,13 +345,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         c.nom.toLowerCase().includes(q) ||
         c.prenom.toLowerCase().includes(q) ||
         c.matricule.toLowerCase().includes(q) ||
+        (c.societe && c.societe.toLowerCase().includes(q)) ||
         c.departement.toLowerCase().includes(q) ||
         c.poste.toLowerCase().includes(q)
     );
   }, [sortedCollaborateurs, passportSearch]);
 
   const selectedCollab = 
-    collaborateurs.find((c) => c.id === selectedCollabId) || 
+    scopedCollaborateurs.find((c) => c.id === selectedCollabId) || 
     filteredPassportCollaborateurs[0] || 
     sortedCollaborateurs[0];
 
@@ -120,7 +360,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     ? getCollaborateurHistory(selectedCollab.id, sessions, souhaits)
     : null;
 
-  // Breakdown of sessions by formation type (Obligatoire, Développement des compétences, Autre)
+  // Breakdown of sessions by formation type
   const typeBreakdown = useMemo(() => {
     if (!collabHistory) return { obligatoire: 0, devCompetence: 0, autre: 0 };
     let obligatoire = 0;
@@ -142,30 +382,256 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [collabHistory]);
 
   return (
-    <div className="space-y-8">
-      {/* Editorial Open-Air Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pt-1">
+    <div className="space-y-6">
+      {/* Editorial Open-Air Page Header with Quick Actions & Discreet Security Counter */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-1">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-stone-900">
-            Accueil
-          </h1>
-          <p className="text-sm text-stone-500 mt-1">
-            Indicateurs stratégiques, financement OPCO et conformité Qualiopi
+          <div className="flex items-center gap-3 flex-wrap mb-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-stone-900">
+              Accueil
+            </h1>
+            
+            {/* Discreet Counter for "Formation en lien avec la sécurité des personnes" */}
+            <div 
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200/80 text-rose-800 text-xs font-medium shadow-2xs"
+              title="Nombre de sessions cochées 'Formation en lien avec la sécurité des personnes' selon le filtre actif"
+            >
+              <ShieldCheck className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+              <span>Sécurité des personnes : <strong className="font-bold text-rose-950">{securitySessionsCount}</strong> session{securitySessionsCount > 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          <p className="text-xs sm:text-sm text-stone-500">
+            Indicateurs stratégiques, analyse par période & société, financement OPCO et conformité Qualiopi
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             onClick={onOpenCreateSession}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-white bg-stone-900 hover:bg-stone-800 rounded-lg transition-colors shadow-2xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-stone-900 hover:bg-stone-800 rounded-lg transition-colors shadow-2xs cursor-pointer active:scale-95"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-3.5 w-3.5 text-emerald-400" />
             <span>Nouvelle session</span>
           </button>
         </div>
       </div>
 
-      {/* 4 Clean Minimalist KPI Cards */}
+      {/* FILTER CONTROL BAR: Période & Société Selection */}
+      <div className="bg-white rounded-2xl border border-stone-200/90 p-4 shadow-2xs space-y-3.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Period Mode Selector (Buttons) */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-semibold text-stone-700 mr-1 flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5 text-stone-500" />
+              <span>Période :</span>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setPeriodMode('MONTH')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                periodMode === 'MONTH'
+                  ? 'bg-stone-900 text-white shadow-xs font-semibold'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+              }`}
+            >
+              Mois sélectionné
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPeriodMode('ROLLING_12')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                periodMode === 'ROLLING_12'
+                  ? 'bg-stone-900 text-white shadow-xs font-semibold'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+              }`}
+            >
+              12 mois glissants
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPeriodMode('YTD')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                periodMode === 'YTD'
+                  ? 'bg-stone-900 text-white shadow-xs font-semibold'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+              }`}
+            >
+              YTD (Janvier au mois)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPeriodMode('ALL')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                periodMode === 'ALL'
+                  ? 'bg-stone-900 text-white shadow-xs font-semibold'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200/70'
+              }`}
+            >
+              Toutes périodes
+            </button>
+          </div>
+
+          {/* Month & Year Selectors (only if not ALL) */}
+          {periodMode !== 'ALL' && (
+            <div className="flex items-center gap-2 self-start lg:self-auto">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                className="px-2.5 py-1.5 rounded-lg border border-stone-200 bg-stone-50 text-xs font-medium text-stone-800 focus:outline-hidden focus:ring-1 focus:ring-stone-400 cursor-pointer"
+              >
+                {MONTH_NAMES.map((m, idx) => (
+                  <option key={m} value={idx}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                className="px-2.5 py-1.5 rounded-lg border border-stone-200 bg-stone-50 text-xs font-medium text-stone-800 focus:outline-hidden focus:ring-1 focus:ring-stone-400 cursor-pointer font-mono"
+              >
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Société (Company) Multi-Selector Row */}
+        <div className="pt-2.5 border-t border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-stone-700 flex items-center gap-1 mr-1">
+              <Building2 className="h-3.5 w-3.5 text-stone-500" />
+              <span>Société(s) observée(s) :</span>
+            </span>
+
+            {/* "Toutes" button */}
+            <button
+              type="button"
+              onClick={handleSelectAllSocietes}
+              className={`px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer font-medium ${
+                selectedSocietes.length === 0
+                  ? 'bg-emerald-700 text-white shadow-2xs font-semibold'
+                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+              }`}
+            >
+              Toutes les sociétés ({allSocietes.length})
+            </button>
+
+            {/* Individual company toggle pills */}
+            {allSocietes.map((soc) => {
+              const isSelected = selectedSocietes.includes(soc);
+              const countCollabs = collaborateurs.filter((c) => (c.societe || 'TABM') === soc).length;
+
+              return (
+                <button
+                  key={soc}
+                  type="button"
+                  onClick={() => handleToggleSociete(soc)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer border ${
+                    isSelected
+                      ? 'bg-amber-600 border-amber-600 text-white font-semibold shadow-2xs'
+                      : selectedSocietes.length > 0
+                      ? 'bg-white border-stone-200 text-stone-500 hover:border-stone-300'
+                      : 'bg-stone-50 border-stone-200 text-stone-700 hover:bg-stone-100'
+                  }`}
+                >
+                  {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                  <span>{soc}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    isSelected ? 'bg-amber-700 text-amber-100' : 'bg-stone-200/70 text-stone-600'
+                  }`}>
+                    {countCollabs}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Scope Summary Banner */}
+          <div className="text-[11px] text-stone-500 flex items-center gap-2 self-start sm:self-auto font-medium">
+            <span>
+              {periodRange ? periodRange.label : 'Historique complet'} • {scopedSessions.length} session{scopedSessions.length > 1 ? 's' : ''} • {scopedCollaborateurs.length} salarié{scopedCollaborateurs.length > 1 ? 's' : ''}
+            </span>
+            {allSocietes.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setShowRefacturationDetails(!showRefacturationDetails)}
+                className="text-indigo-600 hover:text-indigo-800 underline font-semibold cursor-pointer"
+              >
+                {showRefacturationDetails ? 'Masquer refacturation' : 'Refacturation inter-sociétés'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Refacturation Inter-sociétés Panel (collapsible or toggleable) */}
+        {(showRefacturationDetails || allSocietes.length > 1) && (
+          <div className="mt-2 pt-3 border-t border-stone-100 bg-stone-50/70 p-3.5 rounded-xl border border-stone-200/60">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Receipt className="h-4 w-4 text-amber-600" />
+                <h4 className="text-xs font-bold text-stone-900">
+                  Refacturation inter-sociétés ({periodRange ? periodRange.label : 'Toutes périodes'})
+                </h4>
+              </div>
+              <span className="text-[11px] text-stone-500">
+                Proratisé au nombre de stagiaires par session
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-stone-200 text-stone-500 uppercase text-[10px] font-semibold">
+                    <th className="py-1.5 px-2">Société / Entité</th>
+                    <th className="py-1.5 px-2 text-center">Salariés formés</th>
+                    <th className="py-1.5 px-2 text-center">Volume horaire</th>
+                    <th className="py-1.5 px-2 text-right">Coût pédagogique</th>
+                    <th className="py-1.5 px-2 text-right">Prise en charge OPCO</th>
+                    <th className="py-1.5 px-2 text-right">Reste net à refacturer</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-200/60">
+                  {refacturationData.map((row) => (
+                    <tr key={row.societe} className="hover:bg-white/80 transition-colors">
+                      <td className="py-2 px-2 font-bold text-stone-900 flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${row.societe === 'TABM' ? 'bg-slate-700' : 'bg-amber-500'}`} />
+                        <span>{row.societe}</span>
+                      </td>
+                      <td className="py-2 px-2 text-center font-medium text-stone-700">
+                        {row.salariesCount} stagiaire{row.salariesCount > 1 ? 's' : ''} ({row.sessionsCount} sess.)
+                      </td>
+                      <td className="py-2 px-2 text-center font-medium text-stone-600">
+                        {row.totalHeures}h
+                      </td>
+                      <td className="py-2 px-2 text-right font-medium text-stone-900">
+                        {row.coutTotal.toLocaleString('fr-FR')} €
+                      </td>
+                      <td className="py-2 px-2 text-right font-medium text-emerald-700">
+                        {row.opcoTotal.toLocaleString('fr-FR')} €
+                      </td>
+                      <td className="py-2 px-2 text-right font-bold text-amber-900">
+                        {row.resteACharge.toLocaleString('fr-FR')} €
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 4 Clean Minimalist KPI Cards (Dynamically computed on Scoped Data) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Adéquation Besoins */}
         <div className="bg-white p-5 rounded-xl border border-stone-200/80 shadow-2xs flex flex-col justify-between hover:border-stone-300 transition-colors">
@@ -258,26 +724,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* KPI 4: Sessions actives */}
+        {/* KPI 4: Sessions actives & Sécurité des Personnes */}
         <div className="bg-white p-5 rounded-xl border border-stone-200/80 shadow-2xs flex flex-col justify-between hover:border-stone-300 transition-colors">
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-stone-500">Sessions en cours / À venir</span>
+              <span className="text-xs font-medium text-stone-500">Sessions de formation</span>
               <Clock className="h-4 w-4 text-stone-400" />
             </div>
             <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-bold tracking-tight text-stone-900">
-                {sessions.filter((s) => s.statut === 'A_VENIR' || s.statut === 'EN_COURS').length}
+                {scopedSessions.filter((s) => s.statut === 'A_VENIR' || s.statut === 'EN_COURS').length}
               </span>
               <span className="text-xs text-stone-500">
-                sur {sessions.length} sessions
+                actives sur {scopedSessions.length} total
               </span>
             </div>
           </div>
-          <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400">
-            <span>{sessions.filter((s) => s.statut === 'TERMINEE').length} terminées</span>
-            <span className={recyclingAlerts.length > 0 ? 'text-amber-600 font-medium' : 'text-stone-400'}>
-              {recyclingAlerts.length} recyclage(s)
+          <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-[11px]">
+            <span className="text-stone-400">
+              {scopedSessions.filter((s) => s.statut === 'TERMINEE').length} terminées
+            </span>
+            <span className="text-rose-700 font-semibold inline-flex items-center gap-1" title="Sessions avec case 'Formation en lien avec la sécurité des personnes' cochée">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>{securitySessionsCount} sécurité</span>
             </span>
           </div>
         </div>

@@ -36,7 +36,7 @@ interface CollaborateursViewProps {
   onUpdateCollaborateursList?: (collabs: Collaborateur[]) => void;
 }
 
-type SortColumn = 'nom' | 'matricule' | 'genre' | 'statut' | 'poste' | 'formations' | 'souhaits';
+type SortColumn = 'nom' | 'matricule' | 'societe' | 'genre' | 'statut' | 'poste' | 'formations' | 'souhaits';
 
 export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
   collaborateurs,
@@ -49,6 +49,7 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
   onUpdateCollaborateursList
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [societeFilter, setSocieteFilter] = useState('ALL');
   const [deptFilter, setDeptFilter] = useState('ALL');
   const [genderFilter, setGenderFilter] = useState<'ALL' | 'F' | 'H'>('ALL');
   const [statutFilter, setStatutFilter] = useState<string>('ALL');
@@ -64,6 +65,10 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Companies / Sociétés
+  const societes = Array.from(new Set(collaborateurs.map((c) => c.societe || 'TABM').filter(Boolean))).sort();
+  if (!societes.includes('TABM')) societes.unshift('TABM');
 
   // Departments
   const departments = Array.from(new Set(collaborateurs.map((c) => c.departement))).sort();
@@ -120,6 +125,7 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
   // Filtered & Sorted Collaborators
   const filtered = useMemo(() => {
     const filteredList = collaborateurs.filter((c) => {
+      if (societeFilter !== 'ALL' && (c.societe || 'TABM') !== societeFilter) return false;
       if (deptFilter !== 'ALL' && c.departement !== deptFilter) return false;
       if (genderFilter !== 'ALL' && c.genre !== genderFilter) return false;
       if (statutFilter !== 'ALL' && c.statut !== statutFilter) return false;
@@ -129,6 +135,7 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
           c.nom.toLowerCase().includes(q) ||
           c.prenom.toLowerCase().includes(q) ||
           c.matricule.toLowerCase().includes(q) ||
+          (c.societe && c.societe.toLowerCase().includes(q)) ||
           (c.statut && c.statut.toLowerCase().includes(q)) ||
           c.poste.toLowerCase().includes(q) ||
           c.departement.toLowerCase().includes(q)
@@ -148,6 +155,9 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
           break;
         case 'matricule':
           comparison = a.matricule.localeCompare(b.matricule, 'fr', { numeric: true });
+          break;
+        case 'societe':
+          comparison = (a.societe || 'TABM').localeCompare(b.societe || 'TABM', 'fr');
           break;
         case 'genre':
           comparison = (a.genre || '').localeCompare(b.genre || '');
@@ -176,12 +186,13 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
 
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [collaborateurs, deptFilter, genderFilter, statutFilter, searchTerm, sortColumn, sortDirection, collabMetricsMap]);
+  }, [collaborateurs, societeFilter, deptFilter, genderFilter, statutFilter, searchTerm, sortColumn, sortDirection, collabMetricsMap]);
 
   // Modal form states
   const [formNom, setFormNom] = useState('');
   const [formPrenom, setFormPrenom] = useState('');
   const [formMatricule, setFormMatricule] = useState('');
+  const [formSociete, setFormSociete] = useState('TABM');
   const [formEmail, setFormEmail] = useState('');
   const [formGenre, setFormGenre] = useState<'F' | 'H' | 'Autre'>('F');
   const [formStatut, setFormStatut] = useState<CollaborateurStatut>('EMP');
@@ -194,6 +205,7 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
     setFormNom('');
     setFormPrenom('');
     setFormMatricule(`MAT-0${collaborateurs.length + 105}`);
+    setFormSociete('TABM');
     setFormEmail('');
     setFormGenre('F');
     setFormStatut('EMP');
@@ -208,6 +220,7 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
     setFormNom(c.nom);
     setFormPrenom(c.prenom);
     setFormMatricule(c.matricule);
+    setFormSociete(c.societe || 'TABM');
     setFormEmail(c.email || '');
     setFormGenre(c.genre);
     setFormStatut(c.statut || 'EMP');
@@ -227,6 +240,7 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
         nom: formNom.trim(),
         prenom: formPrenom.trim(),
         matricule: formMatricule.trim(),
+        societe: formSociete.trim() || 'TABM',
         email: formEmail.trim(), // Keep empty if empty, no auto-generation
         genre: formGenre,
         statut: formStatut,
@@ -241,6 +255,7 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
         nom: formNom.trim(),
         prenom: formPrenom.trim(),
         matricule: formMatricule.trim(),
+        societe: formSociete.trim() || 'TABM',
         email: formEmail.trim(), // Keep empty if empty, no auto-generation
         genre: formGenre,
         statut: formStatut,
@@ -357,6 +372,17 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
 
         <div className="flex items-center gap-2 flex-wrap">
           <select
+            value={societeFilter}
+            onChange={(e) => setSocieteFilter(e.target.value)}
+            className="px-2.5 py-1.5 rounded-lg border border-stone-200 bg-stone-50/50 text-xs text-stone-700 focus:ring-1 focus:ring-stone-400 focus:outline-hidden font-medium"
+          >
+            <option value="ALL">Toutes les sociétés ({societes.length})</option>
+            {societes.map((soc) => (
+              <option key={soc} value={soc}>{soc}</option>
+            ))}
+          </select>
+
+          <select
             value={deptFilter}
             onChange={(e) => setDeptFilter(e.target.value)}
             className="px-2.5 py-1.5 rounded-lg border border-stone-200 bg-stone-50/50 text-xs text-stone-700 focus:ring-1 focus:ring-stone-400 focus:outline-hidden"
@@ -401,6 +427,7 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
               <tr>
                 <SortableHeader col="nom" label="Collaborateur" />
                 <SortableHeader col="matricule" label="Matricule" />
+                <SortableHeader col="societe" label="Société" />
                 <SortableHeader col="statut" label="Statut" />
                 <SortableHeader col="genre" label="Genre" />
                 <SortableHeader col="poste" label="Service / Poste" />
@@ -412,6 +439,9 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
             <tbody className="divide-y divide-slate-100">
               {filtered.map((collab) => {
                 const history = getCollaborateurHistory(collab.id, sessions, souhaits);
+                const societeName = collab.societe || 'TABM';
+                const isExternal = societeName.toUpperCase() !== 'TABM';
+
                 return (
                   <tr key={collab.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4">
@@ -433,6 +463,16 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
 
                     <td className="py-3 px-3 font-mono font-medium text-slate-600">
                       {collab.matricule}
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                        isExternal 
+                          ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                          : 'bg-slate-100 text-slate-700 border-slate-200'
+                      }`}>
+                        {societeName}
+                      </span>
                     </td>
 
                     <td className="py-3 px-3">
@@ -526,6 +566,9 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
                         : 'bg-emerald-100 text-emerald-800 border-emerald-200/80'
                     }`}>
                       {selectedPassportCollab.genre === 'F' ? 'Femme' : 'Homme'}
+                    </span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                      Société : {selectedPassportCollab.societe || 'TABM'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500">
@@ -709,6 +752,46 @@ export const CollaborateursView: React.FC<CollaborateursViewProps> = ({
                   placeholder="Laisser vide si aucun e-mail professionnel"
                   className="w-full px-3 py-1.5 rounded-lg border border-slate-300"
                 />
+              </div>
+
+              {/* Société / Entité d'appartenance */}
+              <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-xl space-y-1.5">
+                <label className="block font-semibold text-amber-950">
+                  Société d'appartenance (pour refacturation) <span className="text-amber-600">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    value={formSociete}
+                    onChange={(e) => setFormSociete(e.target.value)}
+                    placeholder="Ex: TABM, Filiale Ouest, Transports Express..."
+                    list="collab-societes-datalist"
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-medium"
+                  />
+                  <datalist id="collab-societes-datalist">
+                    {societes.map((soc) => (
+                      <option key={soc} value={soc} />
+                    ))}
+                  </datalist>
+                </div>
+                <div className="flex flex-wrap gap-1 pt-1">
+                  <span className="text-[10px] text-amber-700 font-medium">Suggestions :</span>
+                  {societes.slice(0, 4).map((soc) => (
+                    <button
+                      key={soc}
+                      type="button"
+                      onClick={() => setFormSociete(soc)}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                        formSociete === soc 
+                          ? 'bg-amber-600 text-white border-amber-600 font-semibold' 
+                          : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
+                      }`}
+                    >
+                      {soc}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

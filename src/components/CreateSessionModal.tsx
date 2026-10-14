@@ -12,7 +12,10 @@ import {
   Search, 
   Layers, 
   Info,
-  SlidersHorizontal
+  SlidersHorizontal,
+  UserPlus,
+  ShieldCheck,
+  CheckCircle2
 } from 'lucide-react';
 import { 
   Collaborateur, 
@@ -20,7 +23,8 @@ import {
   FormationType, 
   ParticipantPresence, 
   SessionStatus, 
-  OPCOStatus 
+  OPCOStatus,
+  CollaborateurStatut 
 } from '../types';
 
 interface CreateSessionModalProps {
@@ -29,7 +33,9 @@ interface CreateSessionModalProps {
   onSave: (session: FormationSession) => void;
   collaborateurs: Collaborateur[];
   initialData?: Partial<FormationSession>;
+  prefilledData?: Partial<FormationSession>;
   preselectedCollaborateurIds?: string[];
+  onAddCollaborateur?: (newCollab: Collaborateur) => void;
 }
 
 export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
@@ -38,26 +44,30 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
   onSave,
   collaborateurs,
   initialData,
-  preselectedCollaborateurIds = []
+  prefilledData,
+  preselectedCollaborateurIds = [],
+  onAddCollaborateur
 }) => {
   if (!isOpen) return null;
+
+  const sessionInitial = initialData || prefilledData;
 
   // Tabs for structured clean creation
   const [activeSubTab, setActiveSubTab] = useState<'general' | 'participants' | 'logistique' | 'opco' | 'recyclage'>('general');
 
   // Form states
-  const [libelle, setLibelle] = useState(initialData?.libelle || '');
-  const [organisme, setOrganisme] = useState(initialData?.organisme || '');
-  const [type, setType] = useState<FormationType>(initialData?.type || 'Obligatoire');
-  const [dateDebut, setDateDebut] = useState(initialData?.dateDebut || new Date().toISOString().slice(0, 10));
-  const [dateFin, setDateFin] = useState(initialData?.dateFin || new Date().toISOString().slice(0, 10));
-  const [horaires, setHoraires] = useState(initialData?.horaires || '09:00 - 17:00');
-  const [dureeHeures, setDureeHeures] = useState<number>(initialData?.dureeHeures || 14);
-  const [dureeJours, setDureeJours] = useState<number>(initialData?.dureeJours || 2);
-  const [coutPedagogiqueTotal, setCoutPedagogiqueTotal] = useState<number>(initialData?.coutPedagogiqueTotal || 1500);
-  const [fraisAnnexesTotal, setFraisAnnexesTotal] = useState<number>(initialData?.fraisAnnexesTotal || 0);
-  const [statut, setStatut] = useState<SessionStatus>(initialData?.statut || 'A_VENIR');
-  const [description, setDescription] = useState(initialData?.description || '');
+  const [libelle, setLibelle] = useState(sessionInitial?.libelle || '');
+  const [organisme, setOrganisme] = useState(sessionInitial?.organisme || '');
+  const [type, setType] = useState<FormationType>(sessionInitial?.type || 'Obligatoire');
+  const [dateDebut, setDateDebut] = useState(sessionInitial?.dateDebut || new Date().toISOString().slice(0, 10));
+  const [dateFin, setDateFin] = useState(sessionInitial?.dateFin || new Date().toISOString().slice(0, 10));
+  const [horaires, setHoraires] = useState(sessionInitial?.horaires || '09:00 - 17:00');
+  const [dureeHeures, setDureeHeures] = useState<number>(sessionInitial?.dureeHeures || 14);
+  const [dureeJours, setDureeJours] = useState<number>(sessionInitial?.dureeJours || 2);
+  const [coutPedagogiqueTotal, setCoutPedagogiqueTotal] = useState<number>(sessionInitial?.coutPedagogiqueTotal || 1500);
+  const [fraisAnnexesTotal, setFraisAnnexesTotal] = useState<number>(sessionInitial?.fraisAnnexesTotal || 0);
+  const [statut, setStatut] = useState<SessionStatus>(sessionInitial?.statut || 'A_VENIR');
+  const [description, setDescription] = useState(sessionInitial?.description || '');
 
   // Participants selection
   const [selectedCollabIds, setSelectedCollabIds] = useState<string[]>(() => {
@@ -78,19 +88,131 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
   const [notesLogistiques, setNotesLogistiques] = useState(initialData?.logistique?.notesLogistiques || '');
 
   // OPCO
-  const [opcoDeclare, setOpcoDeclare] = useState(initialData?.opco?.declare || true);
-  const [nomOpco, setNomOpco] = useState(initialData?.opco?.nomOpco || '');
-  const [numeroDossier, setNumeroDossier] = useState(initialData?.opco?.numeroDossier || '');
-  const [subrogation, setSubrogation] = useState(initialData?.opco?.subrogation ?? true);
-  const [montantPrisEnCharge, setMontantPrisEnCharge] = useState<number>(initialData?.opco?.montantPrisEnCharge || 1200);
-  const [fraisAnnexesPrisEnCharge, setFraisAnnexesPrisEnCharge] = useState<number>(initialData?.opco?.fraisAnnexesPrisEnCharge || 0);
-  const [statutOpco, setStatutOpco] = useState<OPCOStatus>(initialData?.opco?.statut || 'EN_INSTRUCTION');
-  const [commentairesOpco, setCommentairesOpco] = useState(initialData?.opco?.commentaires || '');
+  const [opcoDeclare, setOpcoDeclare] = useState(sessionInitial?.opco?.declare || true);
+  const [nomOpco, setNomOpco] = useState(sessionInitial?.opco?.nomOpco || '');
+  const [numeroDossier, setNumeroDossier] = useState(sessionInitial?.opco?.numeroDossier || '');
+  const [subrogation, setSubrogation] = useState(sessionInitial?.opco?.subrogation ?? true);
+  const [montantPrisEnCharge, setMontantPrisEnCharge] = useState<number>(sessionInitial?.opco?.montantPrisEnCharge || 1200);
+  const [fraisAnnexesPrisEnCharge, setFraisAnnexesPrisEnCharge] = useState<number>(sessionInitial?.opco?.fraisAnnexesPrisEnCharge || 0);
+  const [statutOpco, setStatutOpco] = useState<OPCOStatus>(sessionInitial?.opco?.statut || 'EN_INSTRUCTION');
+  const [commentairesOpco, setCommentairesOpco] = useState(sessionInitial?.opco?.commentaires || '');
 
-  // Recycling
-  const [aRecycler, setARecycler] = useState(initialData?.recyclage?.aRecycler || false);
-  const [periodiciteMois, setPeriodiciteMois] = useState<number>(initialData?.recyclage?.periodiciteMois || 24);
-  const [intituleRecyclage, setIntituleRecyclage] = useState(initialData?.recyclage?.intituleRecyclage || '');
+  // Recycling & Safety
+  const [aRecycler, setARecycler] = useState(sessionInitial?.recyclage?.aRecycler || false);
+  const [periodiciteMois, setPeriodiciteMois] = useState<number>(sessionInitial?.recyclage?.periodiciteMois || 24);
+  const [intituleRecyclage, setIntituleRecyclage] = useState(sessionInitial?.recyclage?.intituleRecyclage || '');
+  const [securitePersonnes, setSecuritePersonnes] = useState(sessionInitial?.securitePersonnes || false);
+
+  // Quick Collaborateur creation modal inside session creation
+  const [showQuickAddCollabModal, setShowQuickAddCollabModal] = useState(false);
+  const [quickNom, setQuickNom] = useState('');
+  const [quickPrenom, setQuickPrenom] = useState('');
+  const [quickMatricule, setQuickMatricule] = useState('');
+  const [quickSociete, setQuickSociete] = useState('TABM');
+  const [quickDept, setQuickDept] = useState('');
+  const [quickPoste, setQuickPoste] = useState('');
+  const [quickStatut, setQuickStatut] = useState<CollaborateurStatut>('EMP');
+  const [quickGenre, setQuickGenre] = useState<'F' | 'H' | 'Autre'>('F');
+  const [quickEmail, setQuickEmail] = useState('');
+  const [quickAddFeedback, setQuickAddFeedback] = useState<string | null>(null);
+
+  // Sync state when sessionInitial (prefilled or editing) changes
+  useEffect(() => {
+    if (sessionInitial) {
+      if (sessionInitial.libelle !== undefined) setLibelle(sessionInitial.libelle);
+      if (sessionInitial.organisme !== undefined) setOrganisme(sessionInitial.organisme);
+      if (sessionInitial.type !== undefined) setType(sessionInitial.type);
+      if (sessionInitial.dateDebut !== undefined) setDateDebut(sessionInitial.dateDebut);
+      if (sessionInitial.dateFin !== undefined) setDateFin(sessionInitial.dateFin);
+      if (sessionInitial.horaires !== undefined) setHoraires(sessionInitial.horaires);
+      if (sessionInitial.dureeHeures !== undefined) setDureeHeures(sessionInitial.dureeHeures);
+      if (sessionInitial.dureeJours !== undefined) setDureeJours(sessionInitial.dureeJours);
+      if (sessionInitial.coutPedagogiqueTotal !== undefined) setCoutPedagogiqueTotal(sessionInitial.coutPedagogiqueTotal);
+      if (sessionInitial.fraisAnnexesTotal !== undefined) setFraisAnnexesTotal(sessionInitial.fraisAnnexesTotal);
+      if (sessionInitial.statut !== undefined) setStatut(sessionInitial.statut);
+      if (sessionInitial.description !== undefined) setDescription(sessionInitial.description);
+      if (sessionInitial.participants) {
+        setSelectedCollabIds(sessionInitial.participants.map((p) => p.collaborateurId));
+      }
+      if (sessionInitial.logistique) {
+        setSalleReservee(sessionInitial.logistique.salleReservee || false);
+        setNomSalle(sessionInitial.logistique.nomSalle || '');
+        setPlateauxRepasCommandes(sessionInitial.logistique.plateauxRepasCommandes || false);
+        setDetailsRestauration(sessionInitial.logistique.detailsRestauration || '');
+        setConvocationEnvoyee(sessionInitial.logistique.convocationEnvoyee || false);
+        setNotesLogistiques(sessionInitial.logistique.notesLogistiques || '');
+      }
+      if (sessionInitial.opco) {
+        setOpcoDeclare(sessionInitial.opco.declare ?? true);
+        setNomOpco(sessionInitial.opco.nomOpco || '');
+        setNumeroDossier(sessionInitial.opco.numeroDossier || '');
+        setSubrogation(sessionInitial.opco.subrogation ?? true);
+        setMontantPrisEnCharge(sessionInitial.opco.montantPrisEnCharge || 1200);
+        setFraisAnnexesPrisEnCharge(sessionInitial.opco.fraisAnnexesPrisEnCharge || 0);
+        setStatutOpco(sessionInitial.opco.statut || 'EN_INSTRUCTION');
+        setCommentairesOpco(sessionInitial.opco.commentaires || '');
+      }
+      if (sessionInitial.recyclage) {
+        setARecycler(sessionInitial.recyclage.aRecycler || false);
+        setPeriodiciteMois(sessionInitial.recyclage.periodiciteMois || 24);
+        setIntituleRecyclage(sessionInitial.recyclage.intituleRecyclage || '');
+      }
+      if (sessionInitial.securitePersonnes !== undefined) {
+        setSecuritePersonnes(sessionInitial.securitePersonnes);
+      }
+    }
+  }, [sessionInitial]);
+
+  // Existing companies for quick-picker
+  const existingSocietes = Array.from(
+    new Set(collaborateurs.map((c) => c.societe || 'TABM').filter(Boolean))
+  );
+  if (!existingSocietes.includes('TABM')) {
+    existingSocietes.unshift('TABM');
+  }
+
+  // Handle Quick Collaborator Creation
+  const handleQuickCreateCollaborateur = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickNom.trim() || !quickPrenom.trim()) {
+      alert('Veuillez renseigner au moins le nom et le prénom du collaborateur.');
+      return;
+    }
+
+    const matricule = quickMatricule.trim() || `MAT-${1000 + collaborateurs.length + 1}`;
+    const newCollab: Collaborateur = {
+      id: `collab-${Date.now()}`,
+      matricule,
+      nom: quickNom.trim(),
+      prenom: quickPrenom.trim(),
+      email: quickEmail.trim(),
+      genre: quickGenre,
+      statut: quickStatut,
+      societe: quickSociete.trim() || 'TABM',
+      departement: quickDept.trim() || 'Exploitation',
+      poste: quickPoste.trim() || 'Collaborateur',
+      dateEntree: new Date().toISOString().slice(0, 10)
+    };
+
+    if (onAddCollaborateur) {
+      onAddCollaborateur(newCollab);
+    }
+
+    // Automatically select the newly created employee for this session
+    setSelectedCollabIds((prev) => [...prev, newCollab.id]);
+
+    // Show feedback and reset form
+    setQuickAddFeedback(`Salarié ${newCollab.nom.toUpperCase()} ${newCollab.prenom} (${newCollab.societe}) créé et inscrit à la session !`);
+    setTimeout(() => setQuickAddFeedback(null), 4000);
+
+    setQuickNom('');
+    setQuickPrenom('');
+    setQuickMatricule('');
+    setQuickPoste('');
+    setQuickDept('');
+    setQuickEmail('');
+    setShowQuickAddCollabModal(false);
+  };
 
   // Update dates if starting changes
   const handleDateDebutChange = (newDate: string) => {
@@ -200,6 +322,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         periodiciteMois: aRecycler ? Number(periodiciteMois) || 24 : 0,
         intituleRecyclage: aRecycler ? intituleRecyclage.trim() || `Recyclage ${libelle}` : undefined
       },
+      securitePersonnes,
       description: description.trim(),
       createdAt: initialData?.createdAt || new Date().toISOString()
     };
@@ -241,7 +364,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
             { id: 'participants', label: '2. Participants', count: selectedCollabIds.length },
             { id: 'logistique', label: '3. Logistique', count: salleReservee || plateauxRepasCommandes ? 'Configuré' : null },
             { id: 'opco', label: '4. Suivi OPCO', count: opcoDeclare ? `${montantPrisEnCharge} €` : 'Non' },
-            { id: 'recyclage', label: '5. Recyclage & Éval.', count: aRecycler ? `${periodiciteMois}m` : null }
+            { id: 'recyclage', label: '5. Recyclage & Éval.', count: (aRecycler ? `${periodiciteMois}m` : '') + (securitePersonnes ? (aRecycler ? ' + Sécu' : 'Sécurité') : '') || null }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -428,26 +551,43 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
           {/* TAB 2: Participants Picker from Dimension Table */}
           {activeSubTab === 'participants' && (
             <div className="space-y-3">
+              {quickAddFeedback && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>{quickAddFeedback}</span>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h3 className="text-xs font-semibold text-slate-900">
                     Sélection des participants ({selectedCollabIds.length} sélectionné{selectedCollabIds.length > 1 ? 's' : ''})
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    Piochez parmi la table de dimension collaborateurs de votre entreprise
+                    Inscrivez des collaborateurs existants ou créez-en un nouveau directement au référentiel
                   </p>
                 </div>
 
-                {/* Search & Filter */}
-                <div className="flex items-center gap-2">
+                {/* Actions: Search, Filter & Quick Add Button */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickAddCollabModal(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-all shadow-xs cursor-pointer active:scale-95"
+                    title="Ajouter un nouveau collaborateur au référentiel et l'inscrire directement à cette session"
+                  >
+                    <UserPlus className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Nouveau salarié</span>
+                  </button>
+
                   <div className="relative">
                     <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                     <input
                       type="text"
                       value={collabSearch}
                       onChange={(e) => setCollabSearch(e.target.value)}
-                      placeholder="Nom, matricule..."
-                      className="text-xs pl-8 pr-2 py-1.5 rounded-lg border border-slate-300 w-36 sm:w-48 bg-white"
+                      placeholder="Nom, matricule, société..."
+                      className="text-xs pl-8 pr-2 py-1.5 rounded-lg border border-slate-300 w-32 sm:w-44 bg-white"
                     />
                   </div>
 
@@ -468,6 +608,9 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
               <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto">
                 {filteredCollaborateurs.map((collab) => {
                   const isSelected = selectedCollabIds.includes(collab.id);
+                  const societeName = collab.societe || 'TABM';
+                  const isExternalCompany = societeName.toUpperCase() !== 'TABM';
+
                   return (
                     <div
                       key={collab.id}
@@ -487,12 +630,19 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
                           {isSelected && <Check className="h-3.5 w-3.5" />}
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-semibold text-slate-900">
                               {collab.nom.toUpperCase()} {collab.prenom}
                             </span>
                             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
                               {collab.matricule}
+                            </span>
+                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                              isExternalCompany 
+                                ? 'bg-amber-50 text-amber-800 border-amber-200 font-semibold' 
+                                : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}>
+                              {societeName}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-500">
@@ -837,6 +987,34 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
                 )}
               </div>
 
+              {/* Second Checkbox: Formation en lien avec la sécurité des personnes */}
+              <div className="p-4 border border-slate-200 rounded-xl space-y-2 bg-slate-50/50">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={securitePersonnes}
+                      onChange={(e) => setSecuritePersonnes(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-600"
+                    />
+                    <span className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-rose-600" />
+                      <span>Formation en lien avec la sécurité des personnes</span>
+                    </span>
+                  </label>
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
+                    securitePersonnes 
+                      ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                      : 'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}>
+                    {securitePersonnes ? 'Sécurité personnes' : 'Non concernée'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 pl-6.5 leading-relaxed">
+                  Cochez cette case pour les formations réglementaires, habilitations ou actions ayant un impact direct sur la santé physique et la sécurité des collaborateurs (SST, risque incendie, habilitations électriques, travail en hauteur, CACES, etc.). Le nombre de sessions sera comptabilisé sur le tableau de bord d'accueil.
+                </p>
+              </div>
+
               {/* Cold evaluation notice */}
               <div className="p-4 border border-slate-200 rounded-xl bg-slate-50 space-y-2">
                 <h4 className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
@@ -854,19 +1032,24 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
           <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
             <div className="text-xs text-slate-500">
               {selectedCollabIds.length} participant{selectedCollabIds.length > 1 ? 's' : ''} • {coutPedagogiqueTotal} € HT
+              {securitePersonnes && (
+                <span className="ml-2 text-rose-600 font-medium inline-flex items-center gap-1">
+                  • <ShieldCheck className="h-3 w-3 inline" /> Sécurité des personnes
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
               >
                 Annuler
               </button>
               <button
                 type="submit"
                 id="btn-submit-session"
-                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-sm shadow-blue-600/20 transition-all active:scale-[0.99]"
+                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow-sm shadow-blue-600/20 transition-all active:scale-[0.99] cursor-pointer"
               >
                 {initialData?.id ? 'Enregistrer les modifications' : 'Créer la session de formation'}
               </button>
@@ -874,6 +1057,201 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Quick Add Collaborateur Sub-Modal */}
+      {showQuickAddCollabModal && (
+        <div className="fixed inset-0 z-60 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 p-6 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700">
+                  <UserPlus className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Ajouter un salarié au référentiel
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Sera enregistré dans la liste des collaborateurs et inscrit à cette session
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQuickAddCollabModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickCreateCollaborateur} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Prénom <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={quickPrenom}
+                    onChange={(e) => setQuickPrenom(e.target.value)}
+                    placeholder="Ex: Jean"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Nom <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={quickNom}
+                    onChange={(e) => setQuickNom(e.target.value)}
+                    placeholder="Ex: DUPONT"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Société / Entreprise (Crucial for multi-company invoicing) */}
+              <div className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-xl space-y-2">
+                <label className="block font-semibold text-amber-900">
+                  Société d'appartenance (pour refacturation) <span className="text-amber-600">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    value={quickSociete}
+                    onChange={(e) => setQuickSociete(e.target.value)}
+                    placeholder="Ex: TABM, Filiale Ouest, Transports Express..."
+                    list="existing-societes-list"
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-medium"
+                  />
+                  <datalist id="existing-societes-list">
+                    {existingSocietes.map((soc) => (
+                      <option key={soc} value={soc} />
+                    ))}
+                  </datalist>
+                </div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <span className="text-[10px] text-amber-700 font-medium">Suggestions :</span>
+                  {existingSocietes.slice(0, 4).map((soc) => (
+                    <button
+                      key={soc}
+                      type="button"
+                      onClick={() => setQuickSociete(soc)}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                        quickSociete === soc 
+                          ? 'bg-amber-600 text-white border-amber-600 font-semibold' 
+                          : 'bg-white text-amber-900 border-amber-300 hover:bg-amber-100'
+                      }`}
+                    >
+                      {soc}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Matricule</label>
+                  <input
+                    type="text"
+                    value={quickMatricule}
+                    onChange={(e) => setQuickMatricule(e.target.value)}
+                    placeholder="Auto (MAT-...)"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 font-mono text-[11px]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Statut</label>
+                  <select
+                    value={quickStatut}
+                    onChange={(e) => setQuickStatut(e.target.value as CollaborateurStatut)}
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-mono text-[11px]"
+                  >
+                    <option value="EMP">EMP (Employé)</option>
+                    <option value="CDT">CDT (Conducteur)</option>
+                    <option value="ATE">ATE (Atelier)</option>
+                    <option value="AMT">AMT (Maîtrise)</option>
+                    <option value="A4B">A4B (Haute maîtrise)</option>
+                    <option value="CAD">CAD (Cadre)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Genre</label>
+                  <select
+                    value={quickGenre}
+                    onChange={(e) => setQuickGenre(e.target.value as any)}
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-300 bg-white text-[11px]"
+                  >
+                    <option value="F">Femme</option>
+                    <option value="H">Homme</option>
+                    <option value="Autre">Autre</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Département / Service</label>
+                  <input
+                    type="text"
+                    value={quickDept}
+                    onChange={(e) => setQuickDept(e.target.value)}
+                    placeholder="Ex: Exploitation, Logistique, RH"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Poste occupé</label>
+                  <input
+                    type="text"
+                    value={quickPoste}
+                    onChange={(e) => setQuickPoste(e.target.value)}
+                    placeholder="Ex: Conducteur SPL, Mécanicien"
+                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Email professionnel (optionnel)</label>
+                <input
+                  type="email"
+                  value={quickEmail}
+                  onChange={(e) => setQuickEmail(e.target.value)}
+                  placeholder="jean.dupont@entreprise.fr"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddCollabModal(false)}
+                  className="px-3.5 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <UserPlus className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Créer et inscrire</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
